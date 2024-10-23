@@ -8,14 +8,21 @@ function formatearMonto(monto) {
   });
 }
 
+function formatearPeso(gramos) {
+  if (gramos >= 1000) {
+    return `${(gramos / 1000).toFixed(1)}k`;
+  }
+  return `${gramos}g`;
+}
+
 export default {
   data: new SlashCommandBuilder()
-    .setName("tienda")
-    .setDescription("🏪 Acciones generales de la tienda")
+    .setName("mercadoilegal")
+    .setDescription("⚠️ Acciones exclusivas del mercado ilegal")
     .addSubcommand((sub) =>
       sub
         .setName("añadir")
-        .setDescription("🛒 Añade un ítem a la tienda")
+        .setDescription("🚨 Añade un ítem al mercado ilegal")
         .addStringOption((option) =>
           option
             .setName("articulo")
@@ -25,21 +32,20 @@ export default {
         .addNumberOption((option) =>
           option
             .setName("precio")
-            .setDescription("💵 Precio del artículo")
+            .setDescription("💰 Precio por gramo")
             .setRequired(true)
         )
-        .addIntegerOption((option) =>
+        .addStringOption((option) =>
           option
             .setName("cantidad")
-            .setDescription("🔢 Cantidad de unidades")
+            .setDescription("🔢 Cantidad (ej: 15, 15g, 1.5k)")
             .setRequired(true)
-            .setMinValue(1)
         )
     )
     .addSubcommand((sub) =>
       sub
         .setName("remover")
-        .setDescription("🗑️ Remueve un ítem de la tienda")
+        .setDescription("🗑️ Remueve un ítem del mercado ilegal")
         .addStringOption((option) =>
           option
             .setName("articulo")
@@ -47,37 +53,35 @@ export default {
             .setAutocomplete(true)
             .setRequired(true)
         )
-        .addIntegerOption((option) =>
+        .addStringOption((option) =>
           option
             .setName("cantidad")
-            .setDescription("🔢 Cantidad a remover")
+            .setDescription("🔢 Cantidad (ej: 15, 15g, 1.5k)")
             .setRequired(true)
-            .setMinValue(1)
         )
     )
     .addSubcommand((sub) =>
       sub
         .setName("comprar")
-        .setDescription("🛍️ Compra un ítem de la tienda")
+        .setDescription("💸 Compra un ítem del mercado ilegal")
         .addStringOption((option) =>
           option
             .setName("articulo")
-            .setDescription("📦 Nombre del artículo a comprar")
+            .setDescription("📦 Nombre del artículo")
             .setAutocomplete(true)
             .setRequired(true)
         )
-        .addIntegerOption((option) =>
+        .addStringOption((option) =>
           option
             .setName("cantidad")
-            .setDescription("🔢 Cantidad de unidades")
+            .setDescription("🔢 Cantidad (ej: 15, 15g, 1.5k)")
             .setRequired(true)
-            .setMinValue(1)
         )
     )
     .addSubcommand((sub) =>
       sub
         .setName("revisar")
-        .setDescription("📋 Revisa el inventario de la tienda")
+        .setDescription("📋 Revisa el inventario del mercado ilegal")
     ),
 
   async autocomplete(interaction, client) {
@@ -92,7 +96,7 @@ export default {
     ) {
       const tiendaData = await TiendaSchema.findOne({
         GuildId: guild.id,
-        Tipo: "legal",
+        Tipo: "ilegal",
       });
 
       if (!tiendaData || !tiendaData.Inventario.length) {
@@ -106,9 +110,9 @@ export default {
       )
         .slice(0, 25)
         .map((item) => ({
-          name: `${item.Articulo} - $${formatearMonto(item.Precio)} (${
-            item.Cantidad
-          } unidades)`,
+          name: `${item.Articulo} - $${formatearMonto(
+            item.Precio
+          )}/g (${formatearPeso(item.Cantidad)} disponibles)`,
           value: item.Identificador,
         }));
 

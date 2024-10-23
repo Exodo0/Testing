@@ -118,7 +118,10 @@ export default (client) => {
     }
 
     createPages(content, embedBase, max = 6) {
-      if (!Array.isArray(content) || content.some((c) => typeof c !== "string")) {
+      if (
+        !Array.isArray(content) ||
+        content.some((c) => typeof c !== "string")
+      ) {
         throw new Error(
           "Formato de contenido inválido: Proporciona un array de strings para la paginación."
         );
@@ -165,7 +168,9 @@ export default (client) => {
 
     async display() {
       if (!this.pages.length) {
-        throw new Error("Error de visualización: No hay páginas disponibles para mostrar.");
+        throw new Error(
+          "Error de visualización: No hay páginas disponibles para mostrar."
+        );
       }
 
       if (!this.options.keepIndex) {
@@ -186,7 +191,8 @@ export default (client) => {
       let existingComponents = this.message?.components || [];
       const buttons = this.#createButtons();
 
-      existingComponents = this.#filterOutPaginationComponents(existingComponents);
+      existingComponents =
+        this.#filterOutPaginationComponents(existingComponents);
       if (this.pages.length > 1) existingComponents.push(buttons);
 
       const response = {
@@ -226,7 +232,10 @@ export default (client) => {
             this.pageIndex = Math.max(this.pageIndex - 1, 0);
             break;
           case "@pageNext":
-            this.pageIndex = Math.min(this.pageIndex + 1, this.pages.length - 1);
+            this.pageIndex = Math.min(
+              this.pageIndex + 1,
+              this.pages.length - 1
+            );
             break;
           case "@pageLast":
             this.pageIndex = this.pages.length - 1;
@@ -298,7 +307,8 @@ export default (client) => {
       const buttons = this.#createButtons();
       let existingComponents = this.message.components || [];
 
-      existingComponents = this.#filterOutPaginationComponents(existingComponents);
+      existingComponents =
+        this.#filterOutPaginationComponents(existingComponents);
       existingComponents.push(buttons);
 
       interaction.update({

@@ -1,22 +1,20 @@
 import mongoose from "mongoose";
 
-const TiendaSchema = new mongoose.Schema({
+const Tienda = new mongoose.Schema({
   GuildId: String,
   Tipo: {
     type: String,
-    enum: ['legal', 'ilegal'],
-    required: true
+    enum: ["legal", "ilegal"],
+    required: true,
   },
-  Inventario: [{
-    Articulo: String,
-    Precio: Number,
-    Cantidad: Number,
-    Identificador: String,
-    FechaAgregado: {
-      type: Date,
-      default: Date.now
-    }
-  }]
+  Inventario: [
+    {
+      Articulo: String,
+      Cantidad: Number,
+      Precio: Number,
+      Identificador: String,
+    },
+  ],
 });
 
-export default mongoose.model("Tienda", TiendaSchema);
+export default new mongoose.model("Tienda", Tienda);
