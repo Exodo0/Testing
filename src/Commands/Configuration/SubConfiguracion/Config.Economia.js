@@ -11,6 +11,7 @@ export default {
     const { options, guild } = interaction;
     const logChannel = options.getChannel("log");
     const sat = options.getUser("sat");
+    const rolSat = options.getRole("rol-sat");
     const salario2k = options.getRole("2k");
     const salario5k = options.getRole("5k");
     const salario7k = options.getRole("7k");
@@ -31,14 +32,25 @@ export default {
     if (satIndex !== -1) {
       economiaConfig.Usuario[satIndex] = {
         UserId: sat.id,
-        Banco: economiaConfig.Usuario[satIndex].Banco || 0,
+        TipoCuenta: "gobierno",
+        CuentaGobierno: {
+          Balance:
+            economiaConfig.Usuario[satIndex].CuentaGobierno?.Balance || 0,
+          Activa: true,
+        },
         Sat: true,
       };
     } else {
-      economiaConfig.Usuario.push({ UserId: sat.id, Banco: 0, Sat: true });
+      economiaConfig.Usuario.push({
+        UserId: sat.id,
+        TipoCuenta: "gobierno",
+        CuentaGobierno: { Balance: 0, Activa: true },
+        Sat: true,
+      });
     }
 
     economiaConfig.Registro = logChannel.id;
+    economiaConfig.RolSat = rolSat.id;
     economiaConfig.Salario2k = salario2k.id;
     economiaConfig.Salario5k = salario5k.id;
     economiaConfig.Salario7k = salario7k.id;
@@ -64,6 +76,7 @@ export default {
           value: `<#${logChannel.id}>`,
         },
         { name: "👤 Usuario SAT", value: `<@${sat.id}>` },
+        { name: "🎭 Rol SAT", value: `<@&${rolSat.id}>` },
         { name: "2.5K", value: `<@&${salario2k.id}>` },
         { name: "5K", value: `<@&${salario5k.id}>` },
         { name: "7.5K", value: `<@&${salario7k.id}>` },

@@ -1,9 +1,4 @@
-import {
-  SlashCommandBuilder,
-  ChatInputCommandInteraction,
-  EmbedBuilder,
-  codeBlock,
-} from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, codeBlock } from "discord.js";
 import EcoUsuarios from "../../Schemas/Economia/EcoUsuarios.js";
 
 const formatNumber = (num) =>
@@ -16,166 +11,191 @@ const formatNumber = (num) =>
 export default {
   data: new SlashCommandBuilder()
     .setName("transferir")
-    .setDescription("📩 Transfiere dinero a otro usuario")
-    .addUserOption((option) =>
+    .setDescription("🔄 Transfiere dinero entre tus cuentas")
+    .addStringOption((option) =>
       option
-        .setName("usuario")
-        .setDescription("👤 Usuario al que deseas transferir dinero")
+        .setName("origen")
+        .setDescription("💳 Cuenta de origen")
         .setRequired(true)
+        .addChoices(
+          { name: "Cuenta Salario", value: "salario" },
+          { name: "Cuenta Corriente", value: "corriente" },
+          { name: "Efectivo", value: "efectivo" }
+        )
     )
     .addStringOption((option) =>
       option
-        .setName("cantidad")
-        .setDescription("💰 Especifica la cantidad a transferir")
+        .setName("destino")
+        .setDescription("💳 Cuenta de destino")
         .setRequired(true)
+        .addChoices(
+          { name: "Cuenta Salario", value: "salario" },
+          { name: "Cuenta Corriente", value: "corriente" },
+          { name: "Efectivo", value: "efectivo" }
+        )
+    )
+    .addNumberOption((option) =>
+      option
+        .setName("cantidad")
+        .setDescription("💰 Cantidad a transferir")
+        .setRequired(true)
+        .setMinValue(1)
     ),
-
-  /**
-   * @param {ChatInputCommandInteraction} interaction
-   * @param {Client} client
-   */
 
   async execute(interaction, client) {
     const { options, guild, user } = interaction;
-    await interaction.deferReply({ ephemeral: true });
-    const Target = options.getUser("usuario");
-
-    let CantidadFormat = options.getString("cantidad").replace(/,/g, "");
-    const cantidad = parseFloat(CantidadFormat);
-
-    if (isNaN(cantidad) || cantidad <= 0) {
-      return interaction.editReply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor("Red")
-            .setDescription(
-              "<:Error:1296181956844847175> La cantidad a transferir debe ser un número positivo válido."
-            )
-            .setTimestamp(),
-        ],
-        ephemeral: true,
-      });
-    } else if (Target.id === user.id) {
-      return interaction.editReply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor("Red")
-            .setDescription(
-              "<:Error:1296181956844847175> No puedes transferirte a ti mismo."
-            )
-            .setTimestamp(),
-        ],
-        ephemeral: true,
-      });
-    }
+    const origen = options.getString("origen");
+    const destino = options.getString("destino");
+    const cantidad = options.getNumber("cantidad");
 
     const userData = await client.FetchBalance(user.id, guild.id);
-    const targetData = await client.FetchBalance(Target.id, guild.id);
-
-    if (userData.Efectivo < cantidad) {
-      return interaction.editReply({
+    if (!userData) {
+      return interaction.reply({
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
-            .setThumbnail(client.user.displayAvatarURL())
-            .setDescription(
-              "<:Error:1296181956844847175> No tienes suficiente dinero para transferir."
-            )
-            .setTimestamp(),
+            .setDescription("❌ No tienes una cuenta bancaria."),
         ],
         ephemeral: true,
       });
     }
 
-    const commissionRate = 0.05; // 5% de comisión
-    const commission =
-      Target.id === userData.Sat ? 0 : Math.round(cantidad * commissionRate);
-    const amountAfterCommission = cantidad - commission;
+    // Prevenir transferencias desde/hacia cuentas SAT
+    if (userData.Sat || userData.TipoCuenta === "gobierno") {
+      return interaction.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor("Red")
+            .setDescription(
+              "❌ Las cuentas gubernamentales no pueden realizar transferencias."
+            ),
+        ],
+        ephemeral: true,
+      });
+    }
 
-    let remainingAmount = amountAfterCommission;
-    let amountUsedForDebt = 0;
+    if (origen === destino) {
+      return interaction.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor("Red")
+            .setDescription("❌ No puedes transferir a la misma cuenta."),
+        ],
+        ephemeral: true,
+      });
+    }
 
-    if (targetData.Deuda > 0) {
-      const deuda = targetData.Deuda;
-      if (remainingAmount >= deuda) {
-        amountUsedForDebt = deuda;
-        remainingAmount -= deuda;
-        targetData.Deuda = 0;
-      } else {
-        amountUsedForDebt = remainingAmount;
-        targetData.Deuda -= remainingAmount;
-        remainingAmount = 0;
+    // Verificar fondos en origen
+    let saldoOrigen;
+    if (origen === "efectivo") {
+      saldoOrigen = userData.Efectivo;
+    } else {
+      const cuentaOrigen =
+        origen === "salario"
+          ? userData.CuentaSalario
+          : userData.CuentaCorriente;
+      if (!cuentaOrigen.Activa) {
+        return interaction.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setColor("Red")
+              .setDescription("❌ La cuenta de origen no está activa."),
+          ],
+          ephemeral: true,
+        });
+      }
+      saldoOrigen = cuentaOrigen.Balance;
+    }
+
+    if (saldoOrigen < cantidad) {
+      return interaction.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor("Red")
+            .setDescription(
+              "❌ No tienes suficientes fondos en la cuenta de origen."
+            ),
+        ],
+        ephemeral: true,
+      });
+    }
+
+    // Verificar cuenta destino
+    if (destino !== "efectivo") {
+      const cuentaDestino =
+        destino === "salario"
+          ? userData.CuentaSalario
+          : userData.CuentaCorriente;
+      if (!cuentaDestino.Activa) {
+        return interaction.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setColor("Red")
+              .setDescription("❌ La cuenta de destino no está activa."),
+          ],
+          ephemeral: true,
+        });
       }
     }
 
-    targetData.Efectivo =
-      (parseFloat(targetData.Efectivo) || 0) + remainingAmount;
-    userData.Efectivo -= cantidad;
-
-    await EcoUsuarios.findOneAndUpdate(
-      { GuildId: guild.id, "Usuario.UserId": user.id },
-      { $set: { "Usuario.$": userData } }
-    );
-
-    await EcoUsuarios.findOneAndUpdate(
-      { GuildId: guild.id, "Usuario.UserId": Target.id },
-      { $set: { "Usuario.$": targetData } }
-    );
-
-    if (commission > 0) {
-      const satData = await client.FetchBalance(userData.Sat, guild.id);
-      satData.Banco += commission;
-      await EcoUsuarios.findOneAndUpdate(
-        { GuildId: guild.id, "Usuario.UserId": userData.Sat },
-        { $set: { "Usuario.$": satData } }
-      );
+    // Realizar transferencia
+    if (origen === "efectivo") {
+      userData.Efectivo -= cantidad;
+    } else if (origen === "salario") {
+      userData.CuentaSalario.Balance -= cantidad;
+    } else {
+      userData.CuentaCorriente.Balance -= cantidad;
     }
 
-    const EmbedSuccess = new EmbedBuilder()
-      .setTitle("💸 Transferencia Exitosa")
-      .setThumbnail(interaction.user.displayAvatarURL())
-      .setDescription(`Enviaste a: <@${Target.id}>`)
+    if (destino === "efectivo") {
+      userData.Efectivo += cantidad;
+    } else if (destino === "salario") {
+      userData.CuentaSalario.Balance += cantidad;
+    } else {
+      userData.CuentaCorriente.Balance += cantidad;
+    }
+
+    const economiaData = await EcoUsuarios.findOne({ GuildId: guild.id });
+    const userIndex = economiaData.Usuario.findIndex(
+      (u) => u.UserId === user.id
+    );
+    economiaData.Usuario[userIndex] = userData;
+    await economiaData.save();
+
+    const embed = new EmbedBuilder()
+      .setColor("Green")
+      .setTitle("✅ Transferencia Exitosa")
       .addFields(
         {
-          name: "Monto Transferido:",
-          value: `Enviado: ${codeBlock(formatNumber(cantidad))}`,
+          name: "💸 Cantidad Transferida",
+          value: codeBlock(formatNumber(cantidad)),
+          inline: true,
         },
         {
-          name: "Comisión Cobrada:",
-          value:
-            commission > 0
-              ? `Se cobró un 5% (${codeBlock(
-                  formatNumber(commission)
-                )}) de comisión.`
-              : "No se cobró comisión.",
+          name: "📤 Origen",
+          value: `${origen.charAt(0).toUpperCase() + origen.slice(1)}`,
+          inline: true,
         },
         {
-          name: "Monto Recibido por el Destinatario:",
-          value: `${codeBlock(formatNumber(amountAfterCommission))}`,
+          name: "📥 Destino",
+          value: `${destino.charAt(0).toUpperCase() + destino.slice(1)}`,
+          inline: true,
+        },
+        {
+          name: "📊 Nuevos Saldos",
+          value: codeBlock(
+            `Efectivo: ${formatNumber(userData.Efectivo)}\n` +
+              `Cuenta Salario: ${formatNumber(
+                userData.CuentaSalario.Balance
+              )}\n` +
+              `Cuenta Corriente: ${formatNumber(
+                userData.CuentaCorriente.Balance
+              )}`
+          ),
         }
       )
-      .setColor("Green")
-      .setFooter({ text: "Transacción completada con éxito" })
       .setTimestamp();
 
-    if (amountUsedForDebt > 0) {
-      EmbedSuccess.addFields(
-        {
-          name: "💳 Deuda Pagada",
-          value: `Se pagaron: ${codeBlock(
-            formatNumber(amountUsedForDebt)
-          )} de la deuda.`,
-        },
-        {
-          name: "💳 Deuda Restante",
-          value:
-            targetData.Deuda > 0
-              ? `${codeBlock(formatNumber(targetData.Deuda))} aún por pagar.`
-              : "La deuda ha sido saldada por completo.",
-        }
-      );
-    }
-
-    await interaction.editReply({ embeds: [EmbedSuccess], ephemeral: true });
+    await interaction.reply({ embeds: [embed], ephemeral: true });
   },
 };

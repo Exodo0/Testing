@@ -792,6 +792,12 @@ export default {
         )
         .addRoleOption((option) =>
           option
+            .setName("rol-sat")
+            .setDescription("👤 Selecciona el rol que estara encargado del sat")
+            .setRequired(true)
+        )
+        .addRoleOption((option) =>
+          option
             .setName("2k")
             .setDescription("📂 Ingresa el salario marcado como: 2.5K")
             .setRequired(true)

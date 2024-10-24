@@ -47,6 +47,12 @@ export default {
         });
       }
 
+      if (!userData.CuentaSalario.Activa) {
+        return interaction.editReply({
+          content: "❌ Tu cuenta salario no está activa.",
+        });
+      }
+
       const now = new Date();
       const lastCobro = userData.LastCobro || new Date(0);
       const hoursPassed = (now - lastCobro) / (1000 * 60 * 60);
@@ -88,12 +94,14 @@ export default {
       const iva = salario * 0.16;
       const salarioNeto = salario - iva;
 
-      userData.Banco += salarioNeto;
+      // Depositar en cuenta salario
+      userData.CuentaSalario.Balance += salarioNeto;
       userData.LastCobro = now;
 
-      const satData = ecoData.Usuario.find((u) => u.Sat === false);
-      if (satData) {
-        satData.Banco += iva;
+      // Buscar cuenta SAT y depositar IVA
+      const satUser = ecoData.Usuario.find((u) => u.Sat === true);
+      if (satUser && satUser.CuentaGobierno.Activa) {
+        satUser.CuentaGobierno.Balance += iva;
       }
 
       await ecoData.save();
@@ -118,6 +126,11 @@ export default {
           {
             name: "Monto total antes de IVA:",
             value: codeBlock(formatCurrency(salario)),
+            inline: false,
+          },
+          {
+            name: "Saldo actual en cuenta salario:",
+            value: codeBlock(formatCurrency(userData.CuentaSalario.Balance)),
             inline: false,
           },
           {

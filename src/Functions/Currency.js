@@ -17,11 +17,15 @@ export default (client) => {
           $push: {
             Usuario: {
               UserId: userId,
-              Banco: 0,
+              TipoCuenta: "personal",
+              CuentaSalario: { Balance: 0, Activa: true },
+              CuentaCorriente: { Balance: 0, Activa: true },
+              CuentaGobierno: { Balance: 0, Activa: false },
               Efectivo: 0,
-              LastCobro: null,
               DineroNegro: 0,
               Deuda: 0,
+              LastCobro: null,
+              Sat: false,
             },
           },
         },
@@ -32,6 +36,16 @@ export default (client) => {
     const userBalance = isSat
       ? Balance.Usuario.find((u) => u.Sat === true)
       : Balance.Usuario.find((u) => u.UserId === userId);
+
+    // Si es cuenta SAT, limpiar campos innecesarios
+    if (userBalance && userBalance.Sat) {
+      userBalance.CuentaSalario = undefined;
+      userBalance.CuentaCorriente = undefined;
+      userBalance.Efectivo = undefined;
+      userBalance.DineroNegro = undefined;
+      userBalance.Deuda = undefined;
+      userBalance.LastCobro = undefined;
+    }
 
     return userBalance;
   };
